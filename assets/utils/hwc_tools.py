@@ -17,6 +17,7 @@ from .model import MCPConfig, TransportType
 from .variable import (
     HUAWEI_ACCESS_KEY,
     HUAWEI_SECRET_KEY,
+    HUAWEI_ENDPOINT_DOMAIN,
     MCP_SERVER_MODE,
     MCP_SERVER_PORT,
 )
@@ -160,11 +161,15 @@ class CustomClient(Client):
         return response
 
 
-def create_api_client(ak, sk, x_host, region="cn-north-4"):
+def create_api_client(ak, sk, x_host, region="cn-north-4", endpoint_domain=None):
     endpoint = x_host
 
-    if x_host.find("com") != -1:
-        endpoint = f"https://{x_host}"
+    # Support custom endpoint domain for HCSO / on-premise deployments
+    if endpoint_domain and "myhuaweicloud.com" in endpoint:
+        endpoint = endpoint.replace("myhuaweicloud.com", endpoint_domain)
+
+    if "." in endpoint and not endpoint.startswith("http"):
+        endpoint = f"https://{endpoint}"
 
     if endpoint.find("{region}") != -1:
         endpoint = endpoint.replace("{region}", region)
@@ -269,11 +274,13 @@ def load_config(config_path: Union[str, Path]) -> MCPConfig:
             port=config_dict.get("port", 8888),
             ak=config_dict.get("ak", ""),
             sk=config_dict.get("sk", ""),
+            endpoint_domain=config_dict.get("endpoint_domain", ""),
         )
 
         env_mapping = [
             (HUAWEI_ACCESS_KEY, "ak", None, None),
             (HUAWEI_SECRET_KEY, "sk", None, None),
+            (HUAWEI_ENDPOINT_DOMAIN, "endpoint_domain", None, None),
             (MCP_SERVER_MODE, "transport", None, get_args(TransportType)),
             (MCP_SERVER_PORT, "port", int, None),
         ]
