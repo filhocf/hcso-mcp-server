@@ -13,7 +13,7 @@ from huaweicloudsdkcore.sdk_request import SdkRequest
 from huaweicloudsdkcore.sdk_response import FutureSdkResponse
 from huaweicloudsdkcore.utils import http_utils
 
-from .model import MCPConfig, TransportType
+from .model import MCPConfig, TransportType, TenantConfig
 from .variable import (
     HUAWEI_ACCESS_KEY,
     HUAWEI_SECRET_KEY,
@@ -21,6 +21,7 @@ from .variable import (
     HUAWEI_ENDPOINT_PREFIX,
     HUAWEI_PROJECT_ID,
     HUAWEI_IAM_ENDPOINT,
+    HUAWEI_TENANTS_FILE,
     MCP_SERVER_MODE,
     MCP_SERVER_PORT,
 )
@@ -269,6 +270,31 @@ def load_openapi(config_path):
         raise IOError(f"加载OpenAPI文件失败: {str(e)}")
 
 
+def _load_tenants_file(path: str) -> dict[str, TenantConfig]:
+    """Load tenants from a JSON file. Format:
+    {
+      "default": "sicar",
+      "tenants": {
+        "sicar": {"ak": "...", "sk": "...", "project_id": "...", ...},
+        "mgi":   {"ak": "...", "sk": "...", "project_id": "...", ...}
+      }
+    }
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    tenants = {}
+    for name, t in data.get("tenants", {}).items():
+        tenants[name] = TenantConfig(
+            name=name, ak=t["ak"], sk=t["sk"],
+            endpoint_domain=t.get("endpoint_domain"),
+            endpoint_prefix=t.get("endpoint_prefix"),
+            project_id=t.get("project_id"),
+            iam_endpoint=t.get("iam_endpoint"),
+            region=t.get("region"),
+        )
+    return data.get("default"), tenants
+
+
 def load_config(config_path: Union[str, Path]) -> MCPConfig:
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -314,6 +340,12 @@ def load_config(config_path: Union[str, Path]) -> MCPConfig:
                         f"无效值 '{value_to_set}'. 有效值清单: {allowed_values}"
                     )
                 setattr(cfg, attr_name, value_to_set)
+
+        # Load multi-tenant config if HUAWEI_TENANTS_FILE is set
+        tenants_file = os.environ.get(HUAWEI_TENANTS_FILE)
+        if tenants_file:
+            cfg.default_tenant, cfg.tenants = _load_tenants_file(tenants_file)
+
         # 参数校验
         cfg.check()
         return cfg
