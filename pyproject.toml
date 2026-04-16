@@ -385,6 +385,7 @@ packages = [
 
 
 [project.scripts]
+mcp-server-unified = "huaweicloud_services_server.mcp_server_unified.src.mcp_server_unified.run:main"
 mcp-server-aad = "huaweicloud_services_server.mcp_server_aad.src.mcp_server_aad.run:main"
 mcp-server-aom = "huaweicloud_services_server.mcp_server_aom.src.mcp_server_aom.run:main"
 mcp-server-apig = "huaweicloud_services_server.mcp_server_apig.src.mcp_server_apig.run:main"
