@@ -37,6 +37,19 @@ configure_logging("INFO")
 
 HUAWEI_SERVICES = "HUAWEI_SERVICES"
 
+# Readonly prefixes: verbs that only read data (no mutations)
+_READONLY_PREFIXES = (
+    "List", "Show", "Get", "Count", "Check", "Search", "Query", "Describe",
+)
+
+
+def _is_readonly_tool(name: str) -> bool:
+    """Check if a tool name (without service prefix) is a read-only operation."""
+    for prefix in _READONLY_PREFIXES:
+        if prefix in name:
+            return True
+    return False
+
 
 def _find_openapi_json(service_code: str) -> Optional[Path]:
     """Locate the OpenAPI JSON for a service code."""
@@ -83,6 +96,11 @@ class UnifiedMCPServer:
         service_codes = [s.strip().lower() for s in services_env.split(",") if s.strip()]
         logger.info(f"Loading {len(service_codes)} services: {service_codes}")
 
+        tools_mode = os.environ.get("HUAWEI_TOOLS_MODE", "readonly").lower()
+        if tools_mode not in ("readonly", "full"):
+            tools_mode = "readonly"
+        logger.info(f"Tools mode: {tools_mode}")
+
         for code in service_codes:
             json_path = _find_openapi_json(code)
             if not json_path:
@@ -96,6 +114,10 @@ class UnifiedMCPServer:
                 continue
 
             raw_tools = OpenAPIToToolsConverter(openapi_dict).convert()
+
+            # Filter tools based on mode
+            if tools_mode == "readonly":
+                raw_tools = [t for t in raw_tools if _is_readonly_tool(t.name)]
 
             # Prefix tool names with service code
             prefixed_tools = []
